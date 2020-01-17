@@ -1,0 +1,741 @@
+---
+title: "Primo progetto R-Markdown"
+author: "Cesareo Giacomo"
+mainfont: Times New Roman
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: yes
+    toc_depth: 5
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '5'
+fontsize: 14pt
+urlcolor: blue
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width=4, fig.height=2.5) 
+```
+
+```{r,eval=TRUE,echo=F,warning=FALSE,message=F,results="asis"}
+library(dplyr)
+library(ggplot2)
+library(plyr)
+library(tables)
+library(knitr)
+library(pander)
+library(corrplot)
+library(DescTools)
+library(car)
+library(BioStatR)
+library(gridExtra)
+library(PerformanceAnalytics)
+library(psych)
+
+data <-read.csv("C:\\Users\\giaco\\Desktop\\Progetto R\\HR Employee Attrition.csv",sep=',')
+colnames(data)[1] <- 'Age'
+
+```
+
+\newpage
+
+# Introduzione
+
+Il mondo delle risorse umane è soggetto, come svariati altri settori, ad evoluzioni costanti. Questo cambiamento è dovuto principalmente, all’evoluzione tecnologica e alla conseguente esplosione dei Big Data.
+Questi due fattori hanno portato alla nascita degli HR Analytics, cioè, l’applicazione di sofisticati processi di Business Analytics, tecniche volte ad ottimizzare e prevedere gli andamenti di business e i risultati, alle risorse umane.
+
+\vspace{12pt}
+
+Obiettivo dell’HR Analytics è quello di fornire e analizzare le statistiche necessarie per gestire con efficienza le risorse umane all’interno di una organizzazione aziendale. Per questo motivo, l’interesse di avere un Data Scientist all’interno degli uffici risorse umane delle aziende sta crescendo di giorno in giorno. Questo per cercare, attraverso l’analisi dei dati, di rispondere alle domande: Chi sarà un mio dipendente fedele? Chi cambierà lavoro? Quali attributi personali spingono verso la prima o la seconda direzione?  
+Il [Dataset](https://www.kaggle.com/pavansubhasht/ibm-hr-analytics-attrition-dataset) utilizzato per questa relazione presenta informazioni relative a 1470 dipendenti che vengono descritti in base a 35 variabili.
+
+\vspace{12pt}
+
+Per rispondere alla precedente domanda, sarà tenuta maggiormente in considerazione nella prima parte di questa analisi, la variabile Attrition: un problema tipico di ogni azienda aziende. Esso comporta costi significativi per un’azienda soprattutto nella fase di assunzione e formazione di nuovo personale. Per questo motivo vi è un grande interesse, da parte dell’azienda, ridurre al minimo tale fenomeno. Individuare le cause dell’attrition permetterebbe alle Risorse Umane di intervenire in tempo al fine di evitare l’abbandono da parte dei propri dipendenti.
+
+\vspace{12pt}
+
+L'obbiettivo di questa analisi è quello andare a trattare la maggior parte degli argomenti svolti a lezione, per questo l’analisi si dividerà in tre parti:  
+1.  La prima parte sarà incentrata su statistiche descrittive, al fine di comprendere com’è strutturata l’azienda, con l’obbiettivo di capire se vi sono e quali sono le variabili che influenzano l’abbandono dei dipendenti. Verrà inoltre trattata la variabile MonthlyIncome, vale a dire il reddito dei dipendenti, con lo scopo di capire come questa variabile cambi in relazione alle altre variabili per stabilire se possano esserci delle connessioni con le altre variabili.  
+2.	La seconda parte tratta l’ANOVA, quindi la parte della statistica inferenziale al fine di valutare se vi sono differenze sostanziali tra le medie del reddito dei dipendenti suddivisi in gruppi considerando le variabili **JobRole**, che sta ad indicare appunto le varie professioni interne, e **MaritalStatus**, che rappresenta i diversi stati civili dei dipendenti.  
+3.	La terza parte, ed ultima parte, è dedicata alla regressione, con il fine di prevedere diversi valori, sempre per quanto riguarda la variabile **MonthlyIncome**, di salario dei dipendenti in base alle variabili **Age** e **TotalWorkingYears**.
+
+\vspace{12pt}
+
+Il Dataset presenta sia dati di tipo qualitativo che quantitativo. Nello specifico, in questo elaborato verranno utilizzate le seguenti variabili:  
+•	Qualitativi nominali: **Attition** (binaria), **Gender** (binaria), **MaritalStatus**, **JobRole**, **OverTime** (binaria).  
+•	Qualitativi ordinali: **JobSatisfaction**.  
+•	Quantitativi discreti: **Age**, **TotalWorkingYears**.  
+•	Quantitativi continui: **MonthlyIncome**.
+
+\newpage
+
+
+# 1. Statistiche Descrittive
+
+In questo primo capitolo viene effettuata un’analisi descrittiva dei dati, in modo tale da far emergere quali sono gli aspetti interni all'impresa sui quali occorre soffermarci, rispetto alle 35 le variabili che vengono fornite dal Dataset. Si vuole quindi rendere più chiaro il contesto e fornire delle linee guida per analisi successive.
+
+## 1.1 Variabili Attrition e Gender
+
+Per prima cosa si va ad investigare come viene suddivisa la popolazione di riferimento in base alla variabile Attrition, che sta ad indicare se il dipendete ha cessato o meno il rapporto con l'impresa in questione.  Nella seguente tabella vengono presentate le frequenze assolute e relative della variabile Attrition per vedere come questa si distribuisce nell'organico dell'impresa: l'84% circa dei dipendenti non ha cessato il rapporto mentre il 16% degli stessi ha lasciato l'impresa. Si può notare come questo non è assolutamente un valore trascurabile, dal momento che per ogni dipendente viene eseguito un investimento monetario, soprattutto per quanto riguarda la ricerca del personale e della sua formazione, quindi verranno presentate in seguito quali potrebbero essere state le cause della cessazione del rapporto lavorativo.
+
+\vspace{12pt}
+```{r,echo=F}
+tab <-as.data.frame(table(data$Attrition))
+colnames(tab) <- c('Attrition','Count')
+tab$`Frequenze Relative` <- tab$Count/nrow(data)
+pander(tab,big.mark=',')
+
+```
+\vspace{12pt}
+
+Viene presentata, come si può vedere in *figure 1*, la visualizzazione grafica delle frequenze assolute della tabella precedente attraverso l'utilizzo di un countplot.
+
+```{r,fig.align = 'center',echo=F}
+ggplot(data,aes(Attrition,fill=Attrition)) +
+geom_bar() +
+scale_fill_manual(values=c("lightgreen", "orange"))+
+geom_text(stat='count', aes(label=..count..), vjust=1.5) + labs(title="Plot by Attrition",
+x="Attrition", y = 'Count', caption='Figure 1') +
+theme_bw()
+```
+
+Ora che è stato esposto quanti dipendenti hanno abbandonano l’azienda si vuole indagare su quali siano state le motivazioni che hanno portato questi ultimi a prendere questa decisione.  
+Come prima variabile viene presa in considerazione **Gender** sulla quale sono state eseguite le stesse statistiche descrittive utilizzate per la variabile **Attrition**.    
+Per quanto riguarda le frequenze assolute e le frequenze relative possono esssere osservate nella tabella sottostante.
+
+\vspace{12pt}
+```{r,echo=F}
+tab <-as.data.frame(table(data$Gender))
+colnames(tab) <- c('Gender','Count')
+tab$`Frequenze Relative` <- tab$Count/nrow(data)
+pander(tab,big.mark=',')
+
+```
+\vspace{12pt}
+
+Si evince una sostanziale maggioranza di dipendenti di sesso maschile (60%) rispetto a quello femminile (40%).  
+Viene ora presentata una rappresentazione grafica (*figure 2*) della variabile **Gender** sempre tramite l'utilizzo di un countplot.
+
+```{r,fig.align = 'center',echo=F}
+
+ggplot(data,aes(Gender,fill=Gender)) +
+geom_bar() +
+geom_text(stat='count', aes(label=..count..), vjust=3) + labs(title="Plot by Gender",
+x="Gender", y = 'Count',caption='Figure 2') +
+theme_bw()
+```
+
+### 1.1.1 Analisi bivariata
+
+Vengono ora studiati, congiuntamente, questi due caratteri presentati attraverso l'utilizzo della tabella a doppia entrata seguente.
+
+\vspace{12pt}
+```{r,echo=F}
+table <- table(data$Gender,data$Attrition)
+pander(table,big.mark= ',')
+
+```
+\vspace{12pt}
+
+Questa tabella bivariata fornisce solo valori assoluti, difficilmente interpretabili: mostra solo quanti uomini e quante donne hanno cessato o meno il rapporto con l'azienda. Sarebbe più utile infatti osservare la seguente tabella bivariata che rappresenta le frequenze relative percentuali della variabile **Attrition** relazionata alla variabile **Gender**. 
+
+\vspace{12pt}
+```{r,echo=F}
+pander(prop.table(table,margin=1),big.mark=',')
+```
+\vspace{12pt}
+
+Si evince infatti come, in termini percentuali, sono gli uomini ad avere una più alta frequenza di abbandono dell'impresa, comunque una differenza molto bassa (2.21%). Considerando invece la stessa tabella bivariata delle frequenze assolute, rapportata al numero totale di osservazioni, essa non avrebbe dato informazioni rilevanti su quale genere sia in realtà quello con una probabilità maggiore di Attrition.  
+Di seguito (*figure 3*) viene presentata la visualizzazione delle frequenze assolute della tabella osservata precedentemente, così da ottenere una sintesi dei risultati ottenuti.
+
+```{r,fig.align = 'center',echo=F}
+
+ggplot(data,aes(Gender,fill=Gender)) +
+geom_bar() +
+geom_text(stat='count', aes(label=..count..), vjust=1.1) + labs(title="Gender vs Attrition",
+x="Gender", y = 'Count',caption = 'Figure 3') +
+theme_bw()+facet_wrap(~Attrition)
+```
+
+### 1.1.2 Connessione tra Attrition e Gender
+
+Dopo aver analizzato singolarmente e congiuntamente le due variabili, si propone ora, grazie all'utilizzo del test chi-quadro, un'analisi volta a valutare se tra queste due variabili è presente un'eventuale relazione. Se non esiste alcuna relazione si dirà che le due variabili sono statisticamente indipendenti.  
+Per valutare il grado di conessione tra due caratteri qualitativi viene utilizzato l'indice *Chi-quadro di Pearson*, ma, dal momento che questo valore non è interpretabile, sarà necessario ricorrere alla sua normalizzazione: l’indice normalizzato varia da zero, assenza di connessione (indipendenza statistica) ad 1, massima connessione (ad ogni modalità di Gender corrisponde una ed una sola modalità di Attrition). Come si può osservare dalla tabella sottostante, nel nostro caso il valore è prossimo allo zero e quindi concludiamo che le variabili sono indipendenti. 
+
+\vspace{12pt}
+```{r,echo=F,warning=FALSE,message=F}
+pander(data.frame('ChiQuadro' = 1.116967,'ChiQuadroNorm'=0.0007598416 ),big.mark=',')
+chi <- chisq.test(data$Gender,data$Attrition)
+pander(chi,big.mark=',')
+```
+\vspace{12pt}
+
+Anche osservando il p-value (0.2906) del Test Chi-Quadro non si sarebbe rifiutata l'ipotesi nulla di indipendenza statistica. 
+
+Il grafico seguente (*Figure 4*) misura la magnitudine con la quale i residui impattano sul valore del chi-Quadro. I residui standardizzati, ovvero le contingenze rapportate alla radice quadrata delle frequenze teoriche, sono importanti per interpretare l'associazione tra le righe le colonne della tabella bivariata: quelli in rosso sono positivi, rappresentano un'attrazione tra le variabili di riga e quelle di colonna, ad esempio nel nostro caso troviamo un alta associazione positiva tra *Yes* e *Male*, mentre quelli di colore blu rappresentano residui negativi, nel nostro caso tra *Female* e *Yes*, quindi una forte repulsione.  
+
+```{r,fig.align = 'center',echo=F}
+ponte <- as.data.frame(chi$residuals)
+colnames(ponte) <- c("Gender","Attrition","Residui")
+ggplot(ponte,aes(Gender,Attrition,fill=Residui))+geom_tile()+theme_bw()+labs(title='Corrplot of Residuals',caption='Figure 4')+ scale_fill_gradient2(low = "blue", high = "red")
+
+```
+Si può solo afermare indipendenza tra queste due variabili, tuttavia il carattere qualitativo **Gender** verrà utilizzato in analisi successive e messo in relazioni con altre variabili, dato che potrebbe mettere in risalto aspetti importanti, come ad esempio la differenza di reddito (**MonthlyIncome**) tra i due sessi. 
+
+## 1.2 Variabile MonthlyIncome
+
+Si andrà ora ad analizzare la variabile MonthlyIncome, sempre in relazione alla variabile Attrition, per valutare se la causa dell'allontanamento dei dipendenti dall'azienda sia da attribuire ad una retribuzione non sufficiente.  
+Per prima cosa, dato che la variabile MonthlyIncome è di tipo quantitativo continuo, può essere utile visualizzare queste due variabili tramite l'utilizzo sia di un boxplot sia di un violin-plot (*Figure 5*) per analizzare come si distribuisce in relazione alla variabile Attrition.
+
+\vspace{12pt}
+```{r fig1112, fig.height = 3, fig.width = 8,echo=F}
+a <- ggplot(data, aes(x=Attrition, y=MonthlyIncome,fill=Attrition)) + 
+geom_boxplot() + 
+scale_fill_manual(values=c("red", "lightblue")) +
+labs(title="MonthlyIncome between Attrition",
+x="Attrition", y = 'MonthlyIncome',caption='  ') +
+theme_bw()
+
+b <- ggplot(data, aes(x=Attrition, y=MonthlyIncome,fill=Attrition)) + 
+geom_violin(trim=F) + 
+scale_fill_manual(values=c("red", "lightblue")) +
+labs(title="MonthlyIncome between Attrition",
+x="Attrition", y = 'MonthlyIncome',caption='Figure 5') +
+theme_bw()
+
+grid.arrange(a,b,ncol=2)
+```
+
+Dal boxplot si evince una sostanziale differenza tra le due distribuzioni: la mediana risulta inferiore per quanto riguarda i dipendenti che hanno abbandonato l'impresa rispetto a coloro che sono rimasti fedeli a quest'ultima, il range interquartile risulta più schiacciato comportando così una deviazione standard minore. Osservando il violin-plot si nota, per quanto concerne coloro che non hanno abbandonato la compagnia, una distribuzione di probabilità più omogenea rispetto all'altro gruppo. Si nota comunque una densità più elevata per valori di **MonthlyIncome** compresi tra 2.500 e 5.000 dollari. Totalmente diversa è invece la distribuzione dell'altro gruppo: si nota un'altissima concentrazione intorno al valore di 2.500 dollari. Da entrambi i grafici si osservano outliers nella parte superiore della distribuzione, in particolare per coloro che hanno cessato i rapporti con la compagnia: si osservano dei punti intorno ai 20.000 che avranno avuto sicuramente altre motivazioni per aver lasciato l'impresa.  
+
+\vspace{12pt}
+```{r,echo=F}
+data.Att.Yes <- data[data$Attrition=='Yes',]
+data.Att.No <- data[data$Attrition=='No',]
+no <- as.vector(summary(data.Att.Yes$MonthlyIncome))
+yes <- as.vector(summary(data.Att.No$MonthlyIncome))
+df <- data.frame()
+df <- rbind(df,yes,no)
+rownames(df) <- c('Yes Attrition','No Attrition')
+colnames(df) <- c('Min.','1st Qu.','Median','Mean','3rd Qu.','Max.')
+pander(df,big.mark=',')
+
+```
+\vspace{12pt}
+
+Dalla tabella precedente si ricavano dati più precisi ed esaustivi: le differenza tra le medie e le mediane dei due gruppi sono molto alte, rispettivamente di 2.002 e 2.046 dollari, ma la differenza maggiore si ha osservando il terzo quartile dei due gruppi con uno scarto di 2.918 dollari. Quindi il 75% del primo gruppo percepirà un salario uguale o minore a 5.916 dollari mentre il 75% del secondo gruppo uguale o minore a 8.834.  
+Si può dunque affermare che il salario sarà stata una delle variabili maggiormente considerate da coloro che hanno lasciato l'impresa.
+
+## 1.3 Variabili MonthlyIncome e Gender
+
+Di seguito viene proposta un'analisi della variabile **MonthlyIncome** relazionata al carattere **Gender**.  
+Come è purtroppo noto, nella maggioranza dei casi, le donne percepiscono, mediamente, un salario minore rispetto agli uomini. Viene riportata una tabella di sintesi delle statistiche descrittive tra le due variabili.
+
+\vspace{12pt}
+```{r,echo=F}
+table3 <- aggregate(data$MonthlyIncome, by=list(data$Gender),mean)
+v <- aggregate(data$MonthlyIncome, by=list(data$Gender),median)
+table3$`Salary Median` <- v$x
+v <- aggregate(data$MonthlyIncome, by=list(data$Gender),sd)
+table3$`Standard Deviation` <- v$x
+colnames(table3) <-c('Gender','Salary Mean','Salary Median','Standard Deviation')
+pander(table3,big.mark=',')
+
+```
+\vspace{12pt}
+
+Si può notare una disparità inversa per quanto riguarda la distribuzione dei salari rispetto a quanto affermato precedentemente: nella compagnia le donne percepiscono, mediamente, uno stipendio lievemente maggiore rispetto ai colleghi di sesso maschile (lo si può osservare anche confrontando la mediana tra i due gruppi dato che ques'ultima è meno sensibile ai valori estremi). La deviazione standard è molto alta data la grande variazione di valori presenti nei dati.
+
+### 1.3.1 Discretizzazione variabile MonthlyIncome
+
+Per praticità si opera ad una discretizzazione della variabile **MonthlyIncome**, dato che è espresso su scala continua, esprimendo i livelli assunti dalla variabile in categorie intervallari, ognuna delle quali di ampiezza uguale a 1.000 dollari. Di seguito viene presentata la tabella bivariata con annesse le frequenze relative dei due gruppi.
+
+\vspace{12pt}
+```{r,echo=F}
+data$MoInBinned <-cut(data$MonthlyIncome,seq(1000,20000,1000),include.lowest = T, right = F)  
+
+tablebinned <- table(data$MoInBinned,data$Gender)
+ass <- as.data.frame(tablebinned)
+rel <- prop.table(tablebinned,margin=2)
+a <- ass$Freq[1:19]# femm
+b <- ass$Freq[20:38]# masc
+
+end <- data.frame('Female'=a,'Male'=b)
+rownames(end) <- c('[1 - 2]',"[2 - 3]","[3 - 4]","[4 - 5]","[5 - 6]","[6 - 7]",'[7 - 8]','[8 - 9]','[9 - 10]','[10 - 11]','[11 - 12]','[12 - 13]','[13 - 14]','[14 - 15]','[15 - 16]','[16 - 17]','[17 - 18]','[18 - 19]','[19 - 20]')
+end$`Relative Female` <- (end$Female/588)
+end$`Relative Male` <- (end$Male/882)
+end$`Cumulate Female` <-cumsum(end$`Relative Female`)
+end$`Cumulate Male` <-cumsum(end$`Relative Male`)
+pander(end[1:4],big.mark=',')
+
+```
+\vspace{12pt}
+
+Da questa tabella si osserva come le classi più popolate per entrambi i sessi sono quelle relative agli intevalli compresi tra i 2.000 e i 3.000 dollari e tra i 4.000 e i 5.000 dollari. Un'altra tabella utile per la visualizzazione dei quartili è quella relativa alle frequenze relative cumulate.
+
+\vspace{12pt}
+```{r,echo=F}
+
+pander(end[5:6],big.mark=',')
+
+```
+\vspace{12pt}
+
+Si osserva come per gli uomini il primo quartile risieda nell'intervallo [2-3], per le done invece lo stesso risiede, per uno scarto davvero basso, nell'intervallo [3-4]. Essendo comunque una differenza davvero bassa per le donne si potrebbe arrotondare per eccesso e considerare dunque il primo quartile nell'intervallo [2-3] anche per queste ultime. Stesso discorso per il secondo quartile: si può considerare appartenente alla classe [4-5] per entrambi i gruppi. Il terzo quartile appartiene alla classe [8-9] per entrambi i generi. Considerando appunto che lo stipendio può variare da un minimo di 1.000 ad un massimo di 20.000 si può affermare che questa differenza tra i salari medi di genere femminile rispetto a quelli di genere maschile è trascurabile.
+
+Si propone ora grazie ai seguenti due grafici come si distribuiscono le due variabili.
+
+```{r,fig.align = 'center',echo=F}
+
+a <- ggplot(data, aes(x=MonthlyIncome, fill=Gender, color=Gender)) + geom_histogram(binwidth=1000,aes(y=..density..),position="identity",
+alpha=.3) +
+labs(title="MonthlyIncome density plot by Gender",
+x="Monthly Income", y = "Probability Density",caption = '  ') + theme_bw()
+
+```
+
+```{r fig11121, fig.height = 3, fig.width = 8,echo=F}
+
+b <- ggplot(data, aes(x=MonthlyIncome, fill=Gender, color=Gender)) +
+labs(title="MonthlyIncome density curve by Gender",
+x="Monthly Income", y = "Probability Density",caption = 'Figure 6') + theme_bw() + geom_density(alpha=.3)
+grid.arrange(a,b,ncol=2)
+```
+
+
+Nel grafico a sinistra sono stati scelti *bins* di ampiezza 1.000 dollari e si può notare la superiorità nella distribuzione di probabilità del salario delle donne. Nel grafico di destra che rappresenta le curve di densità di probabilità questa superiorità risulta molto più evidente dato che la curva relativa alle donne risulta superiore per la maggioranza della distribuzione (si era gia osservato dalle frequenze relative).
+
+### 1.3.2 Connessione tra MonthlyIncome e Gender
+
+Utilizzando i dati relativi alle tabelle bivariate precedenti, si può ora effettuare un test di chi-quadro per valutare il grado di connessione tra le variabili **Gender** e **MonthlyIncome**.
+
+\vspace{12pt}
+```{r,echo=F,warning=FALSE}
+data$MoInBinned1 <-cut(data$MonthlyIncome,seq(1000,20000,1000),include.lowest = T, right = F)
+tablebinned1 <- table(data$MoInBinned1,data$Gender)
+pander(data.frame('ChiQuadro' = 28.25,'ChiQuadroNorm'=0.01921806  ),big.mark=',')
+```
+\vspace{12pt}
+
+Il valore del chi quadro normalizzato è molto basso il che suggerisce che le due variabili sono tra loro indipendenti.
+
+\vspace{12pt}
+```{r,echo=F,warning=FALSE}
+
+chi <- chisq.test(tablebinned1)
+pander(chi,big.mark=',')
+no <- chi$statistic/(nrow(data)*min(nrow(tablebinned)-1,ncol(tablebinned)-1))
+```
+\vspace{12pt}
+
+Anche osservando il P-value si nota come questo sia di poco superiore al livello critico dello 0.05, si può quindi accettare l'ipotesi nulla di indipendenza tra le due variabili.  
+
+Dato che la variabile **MonthlyIncome** è di tipo quantitativo si potrebbe anche calcolare l'indipendenza in media tramite l'indice $\eta^2$. Ci si aspetta un valore di $\eta^2$ prossimo allo zero dato che l'indipendenza in distribuzione implica l'indipendenza in media.
+
+\vspace{12pt}
+```{r,echo=F}
+tt <- eta2(data$MonthlyIncome,data$Gender)
+pander(data.frame('Eta Quadro' = 0.001014963))
+```
+\vspace{12pt}
+
+Come appena accennato tra le due variabili non vi è indipendenza in media dato che il valore di $\eta^2$ è vicino a zero, infatti può assumere solo valori compresi tra 0 ed 1: vale zero se la varianza fra i gruppi è nulla cioè quando **MonthlyIncome** è indipendente in media da **Gender** (e la varianza nei gruppi coincide con la varianza marginale di **MonthlyIncome**), mentre vale 1 quando la varianza fra i gruppi coincide con la varianza marginale di **MonthlyIncome** cioè quando **MonthlyIncome** è perfettamente dipendente da **Gender** (e la varianza nei gruppi è nulla).   
+
+## 1.4 Connessione Attrition JobSatisfaction  
+
+Molto spesso alla base dell’Attrition c’è un malcotento del dipendente. Proprio per questo l’azienda dovrebbe monitorare la JobSatisfaction dei propri dipendenti, per capire come intervenire per tempo lì dove quest’ultimo manifesta la propria insoddisfazione.
+A tal fine, decidiamo di analizzare la variabile JobSatisfaction.
+
+
+```{r,fig.align = 'center',echo=F}
+a <-ggplot(data,aes(JobSatisfaction,fill=Attrition)) +
+geom_bar() +
+scale_fill_manual(values=c("orange", "grey")) +
+geom_text(stat='count', aes(label=..count..), vjust=1.1) + labs(title="Plot by JobSatisfaction",
+x="JobSatisfaction", y = 'Count',caption='Figure 7') +
+theme_bw()
+a
+```
+
+Vediamo che le persone che abbandonano l’azienda hanno un livello di soddisfazione molto basso. E' possibile supporre che il dipendente decide di andar via a causa dell'insoddisfazione. Questi insight e quelli del punto precedente (monthly income), possono spingerci ad approfondire se l’insoddisfazione dei dipendenti è legata soprattutto alla retribuzione. Se così fosse, possiamo confermare che i dipendenti nella maggior parte dei casi lasciano l’azienda perché insoddisfatti dal punto di vista retributivo. 
+
+
+```{r fig9291, fig.height = 3, fig.width = 7,fig.align = 'center',echo=F}
+data$JobSatisfaction <-as.factor(data$JobSatisfaction)
+box.attrition <- data %>% select(JobSatisfaction, MonthlyIncome, Attrition) %>% 
+ggplot(aes(x=JobSatisfaction, y=MonthlyIncome, fill=JobSatisfaction)) + geom_boxplot(color="black") + theme_bw() + facet_wrap(~Attrition) + labs(caption='Figure 8')
+box.attrition
+
+```
+
+Il grafico sopra (*figure 8*) ci mostra la distribuzione dei dipendenti per JobSatisfaction/MonthlyIncome/Attrition. Appare evidente che, a parità di JobSatisfaction, le persone che abbandonano l’azienda hanno uno stipendio più basso rispetto a coloro che non hanno abbandonato l’azienda.
+
+## 1.5 Variabili Attrition Overtime
+
+Accade di frequente che nelle aziende i dipendenti decidono di cambiare lavoro a causa del troppo tempo che sono costretti a dedicare a quest’ultimo. In molti casi i dipendenti oberati sono costretti a rimanere sul luogo lavorativo oltre le ore stabilite da contratto per far fronte alla mole di lavoro.
+Si vuole analizzare se anche per l’azienda in questione c’è un legame tra abbandono e “straordinari”. Per far questo, procediamo con l’analisi bivariata tra Attrition e Overtime.
+
+
+```{r,echo=F}
+data$Overtime2 <- revalue(data$OverTime, c("Yes"="Overtime", "No"="Not Overtime"))
+table <- table(data$Attrition,data$Overtime2)
+pander(table,big.mark=',')
+pander(prop.table(table,margin=2),big.mark=',')
+```
+
+```{r fig12, fig.height = 3, fig.width = 6,echo=F,fig.align = 'center'}
+
+ggplot(data,aes(x=Attrition,fill=Attrition))+geom_bar()+facet_wrap(~Overtime2)+theme_bw()+labs(y='Count',caption='Figure 9')+geom_text(stat='count', aes(label=..count..), vjust=1.3)
+```
+
+Dalle tabelle e dal grafico sopra (*figure 9*), si evince che c’è Overtime nel gruppo, ovvero, tra coloro che lavorano più delle ore previste da contratto, c’è un tasso di abbandono di circa 3 volte superiore di quello del gruppo Not Overtime. Si può dedurne quindi che le persone probabilmente abbandonano l’azienda anche per l'eccessivo carico di lavoro.
+
+# 2. ANOVA
+
+In questa sezione vengono proposte due analisi della varianza (ANOVA): nella prima verrà suddivisa la popolazione in base alla variabile **MaritalStatus**, che sta ad indicare lo stato civile dei dipendenti della compagnia, mentre nella seconda si suddividerà la popolazione in gruppi discriminati secondo la variabile **JobRole**, che indica appunto il tipo di lavoro svolto da questi ultimi.  
+L'ANOVA si basa sulla valutazione delle medie di queste gruppi, ottenuti tramite la suddivisione in base a queste due variabili categoriali, e si vuole verificare se queste sono uguali tra di loro.  L'ipotesi nulla afferma che le medie di tutti i gruppi sono uguali tra di loro mentre l'ipotesi alternativa afferma invece, se accettata, che anche solo una di queste medie differisce dalle altre.  
+Viene utilizzata l'anova perchè si vuole valutare la media di più di due popolazioni, altrimenti si sarebbe utilizato un *t-test*, in modo da valutare come interagiscono quantitativamente, tra di loro, più di due gruppi.
+
+## 2.1 ANOVA MonthlyIncome ~ MaritalStatus
+
+Come è stato accennato precedentemente verrà utilizzata la variabile **MaritalStatus** in modo da suddividere la popolazione in tre gruppi: "Married", "Divorced" e "Single" in modo da poter verificare se le medie del reddito di questi tre gruppi sono uguali tra di loro.  
+
+Come prima cosa è utile mostrare le frequenze assolute e relative in base allo stato civile di ciascuno dei dipendenti. 
+
+\vspace{12pt}
+```{r,echo=F}
+pander(table(data$MaritalStatus),big.mark=',')
+pander(table(data$MaritalStatus)/nrow(data),big.mark=',')
+
+```
+\vspace{12pt}
+
+Si nota come la maggioranza dei dipendenti risulti sposata, quasi il 46%, i *Single* rappresentano circa il 32% del totale mentre i divorziati rappresentano la classe meno popolata rappresentata da circa il 22% del totale. Dato questo elevato numero di *Single* sarebbe interessante chiedersi se questi ultimi siano più giovani rispetto agli altri individui, se così fosse percepirebbero, mediamente, un salario minore rispetto agli altri colleghi dato che possiedono un'esperienza lavorativa minore. Per quanto riguarda invece sposati e i divorziati, questi avranno sicuramente qualche anno in più rispetto ai colleghi *Single* e ci si aspetta dunque di osservare un salario maggiore per questi ultimi.  
+
+Nella seguente tabella sono riportati i quartili, il minimo ed il massimo degli stipendi suddivisi in base allo stato civile.
+
+\vspace{12pt}
+```{r,echo=F}
+a <- data.frame("Min."=c(1129,1052,1009),"First Qu." = c(3015,3022,2722),"Median"=c(5131,5204,4536),"Mean"=c(6786,6794,5889),"Third Qu."=c(9418,9096,7328),"Max."=c(19973,19999,19926),row.names=c("Divorced","Married","Single"))
+pander(a,big.mark=",")
+```
+\vspace{12pt}
+
+Si può ora affermare quanto ipotizzato precedentemente: i *Single* guadagnano di meno sia osservando la media che la mediana. Ricordando che la media del salario dell'intera popolazione è di 6.503 dollari si evince come le medie di sposati e divorziati non sono cosi lontane dalla media totale e sono quasi uguali tra di loro. Si può anche affermare che il massimo per tutti e tre i gruppi sia grossomodo lo stesso, mentre per quanto riguarda il minimo si osserva solo come i divorziati abbiano uno stipenio minimo poco superiore ai loro colleghi sposati e *Single.* Guardando invece al terzo quartile si nota una sostanziale differenza per quanto riguarda tutte e tre le categorie: il 75% dei *Single* percepisce un salario uguale o minore a 7.328 dollari, più di 2000 dollari in meno rispetto ai colleghi divorziati. Come è stato detto precendetemente, potrebbe essere causato dalla maggiore inesperienza dei giovani rispetto ai loro colleghi più anziani. Si osserva anche una differenza di quasi 400 dollari tra divorziati e sposati. Questa discrepanza potrebbe essere dovuta al fatto che i dipendenti divorziati potrebbero avere più tempo da dedicare al lavoro rispetto ai colleghi sposati che hanno comunque del tempo da dedicare alla famglia.    
+
+Per comodità viene proposta una rappresentazione grafica dei tre gruppi grazie ad un Boxplot che permette anche di valutare la presenza di outliers all'interno della popolazione.  
+
+```{r,fig.align = 'center',echo=F}
+ggplot(data, aes(x=MaritalStatus, y=MonthlyIncome, fill=MaritalStatus)) +
+geom_boxplot(color="black") +
+labs(title='Boxplot',caption='Figure 10') +  
+theme_bw()
+```
+
+Dall'analisi grafica del Boxplot si evince quello che è stato gia detto in precedenza: tra i gruppi *Divorced* e *Married* minimo e mediana risultano quasi identici mentre il range interquartile è leggermente minore per quanto riguarda i dipendenti sposati. Interessnte è invece la distribuzione dei *Single*: presentano una differenza interquartile minore e, come visto nella tabella precendente, minore mediana. Dai valori minimi e massimi del boxplot notiamo come i *Single* hanno anche una deviazione standard minore rispetto gli sposati e i divorziati.  
+Notiamo anche come il salario minimo sia praticamente uguale per tutte e tre le classi e non ci siano outliers nella parte inferiore della distribuzione. Situazione diversa per quanto riguarda la parte alta della distribuzione dato che tutte e tre le classi presentano numerosi outliers. 
+
+Si procede ora con il calcolo degli outliers per classe dato che dal grafico non si riesce a comprendere appieno la numerosità di questi punti estremi.  
+
+\vspace{12pt}
+```{r,echo=F}
+status <- unique(data$MaritalStatus)
+table <- c()
+
+for (i in status){
+  condition <- data$MonthlyIncome[data$MaritalStatus==i]
+  Q <- quantile(condition)
+  bound <- Q['75%'] + 1.5*(Q['75%'] - Q['25%'])
+  table[i] <- (length(which(condition > bound)))
+}
+
+pander(table,big.mark=',')
+
+```
+\vspace{12pt}
+
+Per quanto riguarda i dipendenti *Single* si nota come outliers rappresentino circa il 10% della distribuzione del gruppo e, come si vede dal boxplot, alcuni di questi punti sono di molto fuori dal limite consentito. Queste osservazionii infatti potrebbero essere molto influenti sulla distribuzione totale.     
+Ci si aspetta, come ipotizzato precedentemente, che i *Single* siano i dipendenti più giovani dell'impresa, quindi, vengono proposti i boxplot e i violin-plot relativi alla variabil **Age** in relazione con lo stato civile, e una tabella rappresentante statistiche descrittive di base.    
+
+```{r fig1219, fig.height = 3, fig.width = 8,echo=F}
+a<-ggplot(data, aes(x=MaritalStatus, y=Age, fill=MaritalStatus)) +
+geom_boxplot(color="black") +
+labs(title='Boxplot MaritalStatus by Age',caption=' ') +
+theme_bw()
+
+b<-ggplot(data, aes(x=MaritalStatus, y=Age, fill=MaritalStatus)) +
+geom_violin(trim=F) + 
+labs(title='ViolinPlot MaritalStatus by Age',caption='Figure 11') +
+theme_bw()
+
+grid.arrange(a,b,ncol=2)
+
+```
+
+\vspace{12pt}
+```{r ,echo=F}
+mean <- aggregate(data$Age, by=list(data$MaritalStatus),mean) 
+median <- aggregate(data$Age, by=list(data$MaritalStatus),median) 
+sd <- aggregate(data$Age, by=list(data$MaritalStatus), sd)
+
+pander(data.frame('Marital Status' = mean$Group.1,
+                  'Mean'=mean$x,'Median'=median$x,
+                  'Standard Deviation'=sd$x),big.mark=',')
+```
+\vspace{12pt}
+
+Osservando il boxplot si può ora confermare quanto detto in precedenza: i lavoratori *Single* sono in media più giovani dei dipendenti divorziati e Sposati. Questi presentano anche una deviazione standard maggiore, lo si evince anche dal grafico dato che presentano una coda inferiore più basse rispetto alle altre due classi. La situazione risulta ancora più chiara guardando il volin-plot: per quanto riguarda il gruppo relativo ai *single* troviamo una densità di probabilità maggiore nella parte inferiore della distribuzione rispetto agli altri due gruppi.
+  
+Tornando all'analisi dello stipendio viene proposta la visualizzazione grafica della densità di probabilità delle tre classi all'interno di un unico grafico.
+
+```{r fig 222,fig.align = 'center',echo=F,fig.height = 3, fig.width = 6,echo=F}
+cdat <- ddply(data, "MaritalStatus", summarise, income.mean=mean(MonthlyIncome))
+
+plot <- ggplot(data, aes(x=MonthlyIncome, fill=MaritalStatus)) + geom_density(alpha=0.5) +
+geom_vline(data=cdat, aes(xintercept=income.mean,  colour=MaritalStatus),
+linetype="dashed", size=0.5) +
+geom_vline(aes(xintercept=3000),
+color="red", linetype=1, size=0.5) +
+geom_vline(aes(xintercept=mean(data$MonthlyIncome)),
+color="black", linetype=1, size=0.5) +
+theme_bw()
+plot+labs(title='Density plot per MaritalStatus',y='Density',captions='Figure 12')
+
+```
+
+Si consideri ora solamente l'intervallo compreso tra 5.000 e 7.000 dollari dato che in questo primo grafico le medie dei dipendenti sposati e divorziati sono sovrapposte.    
+
+```{r fig 2212,fig.align = 'center',warning=FALSE,message=F,results="asis",echo=F,fig.height = 3, fig.width = 6,echo=F}
+
+
+plot + xlim(5000,7000)+labs(title='Density plot per MaritalStatus [5.000 -7.000]',y='Density',captions='Figure 13')
+
+```
+
+Dalla curva di probabilita della variabile **MonthlyIncome** si evince come la distribuzione presenti un'assimmetria positiva (Media < Mediana), si nota infatti un picco per quanto riguarda un valore prossimo a 3.000 dollari (linea rossa), soprattutto per quanto riguarda i dipendenti *Single.* La distribuzione presenta infatti una varianza molto elevata: una varianza nei gruppi molto ampia dato che il salario varia da circa 1.000 a 20.000 dollari, per quanto riguarda invece la varianza tra i gruppi si osserva come questa sia bassa per quanto riguarda il gruppo di *Single* ed ancora piu bassa per gli altri due gruppi dato che le due medie sono molto vicine alla media totale rappresentata dalla linea nera. Si era gia osservato in precedenza nella tabella suddivisa i classi di stipendio che più di un quarto della popolazione percepisce un reddito compreso da 0 a 3.000 dollari, infatti con una varianza così elevata questo è il classico caso dove media e anche mediana (anche se piu robusta) vengono trascinati da valori estremi.  
+
+La media dei *Single* sembra un po piu bassa e vogliamo valutare se è dovuto ad un fattora casuale.
+Dividiamo in gruppi in base allo stato matrimoniale, qundi avremo tre gruppi ed eseguiremo l'anova in relazione allo stipendio.  
+Si nota come le medie tra *Divorced* e *Married* si sovrappongono, la piu lontana dalla media totale è *Single.*  
+
+Vengono presentati ora gli output relativi all'Anova.  
+
+\vspace{12pt}
+```{r,echo=F}
+mod <- lm(MonthlyIncome~MaritalStatus,data)
+pander(anova(mod),big.mark=',')
+
+```
+\vspace{12pt}
+
+il valore F-value, ovvero il valore critico, è il rapporto tra il *mean squared error* delle variabile esplicative (nel nostro caso solo **Maritalstatus**) e il *mean squared error* dei residui del modello. Il p-value indica invece la probabilità di ottenere un valore uguale o più estremo rispetto al valore F-value osservato. Considerando un livello di significatività uguale a 0.05 rifiutiamo l'ipotesi nulla di uguaglianza nelle medie dei nostri gruppi.  
+Affermiamo quindi che con i nostri dati non vi è una forte evidenza che le medie dei gruppi relativi alla variabile MaritalStatus siano tra di loro uguali.
+
+## 2.2 ANOVA MonthlyIncome ~ JobRole
+
+Si vuole ora confrontare come tenda a variare il reddito in relazione alla variabile **JobRole**.  
+
+Per prima cosa vegono proposte statistiche descrittive preliminari per valutare come si distribuiscono la classe **JobRole** all'interno della popolazione di riferimento.
+
+\vspace{12pt}
+```{r,echo=F}
+tab <-as.data.frame(table(data$JobRole))
+colnames(tab) <- c('JobRole','Count')
+tab$`Frequenze Relative` <- tab$Count/nrow(data)
+pander(tab,big.mark=',')
+
+```
+\vspace{12pt}
+
+Si osserva come il maggior numero di dipendenti occupino la posizione di Sales Executive seguiti da Research Scientist e Laboratory Technician, infatti queste tre professioni occupano circa il 60% dei dipendenti totali.  
+
+Vengono ora proposte le medie suddivise per categoria e si nota che è presente una varianza molto alta dato che in base al tipo di lavoro i salari cambiano di molti da un minimo di circa 2.500 a un massimo di 17.000 dollari.
+
+\vspace{12pt}
+```{r,echo=F}
+table3 <- aggregate(data$MonthlyIncome, by=list(data$JobRole),mean)
+table3 <- as.data.frame(table3)
+colnames(table3) <-c('JobRole','Salary Mean')
+#table3$`Salary Mean` <- sort(table3$`Salary Mean`,decreasing = T)
+pander(table3,big.mark=',')
+```
+\vspace{12pt}
+
+Incrociando i dati delle due tabelle precedenti si osserva come i lavori con una maggiore retribuzione siano quello del *Manager* e del *Research Director* con un salario in media di molto superiore rispetto a tutti gli altri lavori, inoltre queste due classi rappresentano solo il 12% circa del totale.  
+
+Viene proposta ora una visualizzazione grafica grazie all'utilizzo dei boxplot in base alle classi della variabile **JobRole** sempre in relazione alla variabile **MonthlyIncome**.  
+
+```{r fig3, fig.height = 4, fig.width = 8,echo=F}
+ggplot(data, aes(x=JobRole, y=MonthlyIncome, fill=JobRole)) +
+geom_boxplot(color="black") +
+labs(title='Income by JobRole',caption='Figure 14') +
+coord_flip() +
+theme_bw()
+```
+
+Dal grafico una si nota una varianza molto elevata per quanto riguarda i dipendenti che svolgono il ruolo di *Research Director*, quindi una forte variazione negli stipendi, si evince anche che non sono presenti outliers. Un altro lavoro ruolo che assume una distribuzione particolare è *Sales Representative*: sono infatti i dipendenti che guadagnano di meno e presentano anche una varianza minore, quindi gli stipendi saranno tutti molto simili eccetto che per qualche outliers sia nella parte inferiore sia nella parte superiore della distribuzione. Per quanto riguarda i *Manager*, che come si è visto sono coloro che percepiscono uno stipendio mediamente maggiore rispetto agli altri dipendenti, si osservano outliers nella parte inferiore della distribuzione, forse perchè più giovani rispetto agli altri colleghi.
+
+```{r fig41, fig.height = 4, fig.width = 8,echo=F}
+cdat <- ddply(data, "JobRole", summarise, income.mean=mean(MonthlyIncome))
+
+plot <- ggplot(data, aes(x=MonthlyIncome, fill=JobRole)) + geom_density(alpha=0.5) +
+geom_vline(data=cdat, aes(xintercept=income.mean,  colour=JobRole),
+linetype="dashed", size=0.5) +
+geom_vline(aes(xintercept=mean(MonthlyIncome)),
+color="black", linetype=1, size=0.5) +
+labs(title='Income by JobRole',y='Probability Density',caption='Figure 15') +
+theme_bw()
+plot
+```
+
+Nel grafico precedente vengono visualizzate le distribuzioni di probabilità e si evince, tra i vari **JobRole**, una varianza nei gruppi molto elevate per tutti i gruppi. Ciò è dovuto fortemente al grosso numero di outliers presenti all'interno di ciascun gruppo. Per quanto riguarda invece la varianza tra i gruppi si può osservare come questa risulti molto varia: la media della maggior parte dei gruppi è vicina alla linea nera rappresentante la media totale della variabile **JobRole**, per quanto riguarda i due lavori più pagati visti precendentemente la loro media è molto lontana.
+
+\vspace{12pt}
+```{r,echo=F}
+mod <- lm(MonthlyIncome~JobRole,data)
+pander(anova(mod),big.mark=',')
+
+```
+\vspace{12pt}
+
+Osservando i risultati dell'ANOVA si vede come il p-value sia praticamente uguale a zero, ovvero il valore F trovato è di molto superiore a quello critico consentito, quindi può essere rifiutata l'ipotesi nulla di uguaglianza tra le medie dei campioni e si può affermare che con i dati presenti c'è una significativa differenza tra le medie dei salari in base al tipo di lavoro. 
+
+# 3. Regressione Lineare
+
+In questo ultimo capitolo verranno utilizzatate due regressioni lineari per predirre il valore di una data variabile quantitativa Y (**MonthlyIncome**), ovvero variabile dipendente, attraverso una o più variabili X definite regressori.  
+Di seguito, verranno proposte due tipi di regressioni: la prima lineare semplice con una sola variabile esplicativa (**TotalWorkingYears**), nel secondo caso verrà proposta una regressione lineare multipla con due variabili esplicative (**TotalWorkingYears** e **Age**). 
+L'obbiettivo è quello di prevedere il salario, infatti è ragionevole pensare che quest'ultimo possa essere ben definito in base all'età di ogni singolo dipendente e la totalità degli anni lavorativi di questi ultimi.  
+
+Come prima cosa è utile analizzare la tabella di correlazione delle variabili che verranno usate nella regressione in modo da poter capire a priori se il modello possa essere affetto da multicollinearità.  
+
+```{r fig123, fig.height = 3, fig.width = 6,echo=F}
+my_data <- data[c('MonthlyIncome','Age','TotalWorkingYears')]
+pairs.panels(my_data, 
+             method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE,  # show density plots
+             ellipses = TRUE # show correlation ellipses
+             )
+```
+
+Questo grafico è molto utile perche fornisce molte informazioni: sono rappresentate le correlazioni tra le variabili, le distribuzioni delle tre variabili con i relatiivi istogrammi e le curve di densità di probabilità. Si nota infatti come tutte le variabili non risultino avere una distribuzione normale e, al contrario, presentano tutte e tre assimmetria positiva.   
+Si evince infatti come le correlazioni siano buone (ottima per quanto riguarda **MonthlyIncome** e **TotalWorkingYears**) dato che sono tutte superiori al 0.5.  
+Si può anche affermare che la probabilità di osservare multicollinearità all'interno di un modello di regressione con le seguenti variabili sia bassa dato che la loro correlazione non ragginge livelli allarmanti superiori al 90%.  
+
+## 3.1 Regressione lineare semplice
+
+Viene ora proposta la regressione lineare semplice MonthlyIncome ~ TotalWorkingYears e vengono presentati i relativi output di regressione:  
+\vspace{12pt}
+```{r,echo=F}
+mod <- lm(MonthlyIncome ~ TotalWorkingYears,data)
+pander(summary(mod),big.mark=',')
+```
+\vspace{12pt}
+
+Dall'output si evince un buon, seppur non elevatissimo $R^2$ pari a 0.5974 che sta ad indicare il fitting del modello, ovvero in che proporzione il modello sia in grado di spiegare i dati in possesso.  
+Fondamentale per il modello è che i P-value delle variabili prese in esame siano inferiori al livello di significatività scelto ($\alpha = 0.05$): i p-value sono infatti di gran lunga inferiori al livello prefissato e può quindi rifiutata l'ipotesi nulla di non significatività delle variabili per il modello, affermando che vi è una relazione tra le due variabili che sarà difficilmente dovuta al caso.  
+Considerando invece la colonna *Estimate*, che sta ad indicare i coefficienti veri e propri della retta di regressione, si vede come, per assurdo, un dipendente con 0 anni di lavoro alle spalle percepisca uno stipendio pari a 1227.94 che verrà incrementato di 476.66 dollari per ogni anno lavorativo aggiuntivo.  
+
+Nel grafico seguente viene presentata la visualizzazione grafica della retta di regressione.  
+
+```{r,fig.align = 'center',echo=F}
+ggplot(data, aes(x = TotalWorkingYears, y = MonthlyIncome)) +
+geom_point(size = 3,shape=20)  +stat_smooth(method="lm", col="red", se=FALSE) +
+scale_y_continuous(breaks = c(1000, 4000, 8000, 10000, 14000, 16000, 18000, 20000), minor_breaks = NULL) + 
+labs(title='Regression line',caption='Figure 16')+
+theme_bw()
+```
+
+Successivamente, come si può vedere dal grafico seguente, è utile capire come si distribuiscono i residui di regressione in relazione ai valori (TotalWorkingYears) predetti dal modello.  
+
+```{r,fig.align = 'center',echo=F}
+ggplot(data, aes(x = fitted(mod), y = resid(mod))) +
+geom_point(size = 3,shape=20) +
+labs(title='Residual vs Predicted',y='Residui',x='Predetti',caption='Figure 17')+
+geom_hline(yintercept = 0,color='red')+
+theme_bw()
+```
+
+I residui dovrebbero disporsi casualmente intorno alla linea rossa che sta ad indicare lo scarto che si vorrebbe ottenere tra valori osservati e valori predetti dal modello (si vuole infatti che lo scarto sia minimo, quindi uguale a zero).  
+Da questo grafico si nota una certa dispersione crescente dei punti che tendono ad allargarsi (fino a poco più di 10.000 dollari) per poi contrarsi assumendo comunque un ordine sparso nella parte destra del grafico.  
+Questa forma implica un alto valore dei residui di regressione, che comporta una varianza non costante all'interno del modello, la quale potrebbe essere sintomo di eteroschedsticità dei residui, si può inoltre notare la presenza di alcuni outliers che se rimossi potrebbero migliorare i valori del modello.  
+
+Il passo successivo è quello di valutare se i residui del modello presentano una distribuzione normale in modo da poter applicare eventuali intervalli di confidenza.  
+Nel grafico seguente vengono proposti il QQplot e l'istogramma relativo alla distribuzione dei residui.  
+
+```{r fig991, fig.height = 3, fig.width = 7,echo=F,fig.align = 'center'}
+a <- qplot(sample = rstandard(mod), data = data)+
+stat_qq()+stat_qq_line()+theme_bw() +labs(title = 'QQ Plot',y='Residui Standardizzati',x='Normal Score') +xlim(-4,4)
+
+b <- ggplot(data,aes(x=resid(mod))) +
+geom_histogram(aes(y=..density..), colour="black", fill="gold",binwidth = 700) +
+labs(title="Normality of residuals",
+x="Residui", y = 'Probability Density',caption='Figure 18') +
+geom_density(alpha=.2, fill="blue") +
+theme_bw()
+grid.arrange(a,b,ncol=2)
+
+```
+
+Per poter affermare che i residui del modello siano normali occorre che i punti del QQplot si distribuiscano il più possibile sulla retta, cosa che non accade in questo modello di regressione. Anche l'istogramma dei residui riporta code pesanti e una campana con una punta più stretta, infatti la curva di densità di probabilità è leptocurtica dato che il test di curtosi ha dato un valore prossimo a 4, si può quindi affermare  che i residui del modello non presentano una distribuzione normale.  
+
+## 3.2 Regressione lineare multipla
+
+Quest'ultima sezione è molto simile alla precedente, ma presenta un regressore in più, vale a dire la variabile **Age**. Si prosegue quindi con il summary relativo al nuovo modello di regressione multipla. 
+
+\vspace{12pt}
+```{r,echo=F}
+mod1 <- lm(MonthlyIncome ~ TotalWorkingYears + Age,data)
+pander(summary(mod1),big.mark=',')
+```
+\vspace{12pt}
+
+Si intuisce come l'aggiunta della variabile Age al modello renda praticamente invariato il valore dell' $R^2$ normale e di quello aggiustato, risulta significativa anche la nuova variabile con un livello di significatività sempre dello 0.05.  
+Da notare sono i cambiamenti relativi ai parametri della retta di regressione: l'intercetta è passata da circa 1200 a 1900, aumenta di poco il parametro relativo a TotalWorkingYears mentre sembra che la variabile Age penalizzi la predizione finale del salario, infatti per ogni anno in piu di ogni dipendente si ha una perdita di salario predetto di circa 27$.  
+
+```{r,fig.align = 'center',echo=F}
+
+ggplot(data, aes(x = fitted(mod1), y = resid(mod1))) +
+geom_point(size = 3,shape=20) +
+labs(title='Residual vs Predicted',y='Residui',x='Predetti',caption='Figure 19')+
+geom_hline(yintercept = 0,color='red')+
+theme_bw()
+```
+
+Si può affermare che anche il grafico dei residui del nuovo modello sia molto simile a quello relativo alla regressione precedente: anche in questo caso i residui tendono ad essere concentrati maggiormente per valori più bassi di salario mantenendo comunque questa dispersione, sempre maggiore, intorno alla linea rossa, tendendo poi a contrarsi di di nuovo.    
+
+Da i due grafici sottostanti si può osservare che anche la normalità dei residui non sembra essere migliorata dopo l'aggiunta della variabile **Age** al modello.  
+
+```{r fig9911, fig.height = 3, fig.width = 7,echo=F,fig.align = 'center'}
+a <- qplot(sample = rstandard(mod1), data = data)+
+stat_qq()+stat_qq_line()+theme_bw() +labs(title = 'QQ Plot',y='Residui Standardizzati',x='Normal Score') +xlim(-4,4)
+
+b <- ggplot(data,aes(x=resid(mod1))) +
+geom_histogram(aes(y=..density..), colour="black", fill="gold",binwidth = 700) +
+labs(title="Normality of residuals",
+x="Residui", y = 'Probability Density',caption='Figure 20') +
+geom_density(alpha=.2, fill="blue") +
+theme_bw()
+grid.arrange(a,b,ncol=2)
+
+```
+
+L'ultimo passo è quello di valutare se, e in che quantita, il modello è affetto da multicollinearità. In precedenza si è visto come la correlazione tra le variabili Age e TotalworkingYears fosse abbastanza alta ma non tanto da far pensare a multicollinearità.  
+Nelle due tabelle sottostanti vengono presentati il VIF, indice che ci pertmette di valutare il grado di multicollinearità: un valore superiore a 10 è da considerarsi preoccupante, tuttavia non esiste un valore universale che indica quando è presente multicollinearità.  
+Nella seconda tabella viene presentata la radice quadrata del VIF che sta ad indicare quanto è più grande l'errore standard, rispetto ad un altro regressore, nel caso in cui questo regressore fosse incorrelato con le altre variabili esplicative. In questo caso il valore limite da non superare viene posto uguale a 2.
+
+\vspace{12pt}
+```{r,echo=F}
+pander(vif(mod1),big.mark=',')
+pander(sqrt(vif(mod1)) > 2,big.mark=',')
+```
+\vspace{12pt}
+
+Si evince che i VIF sono particolarmente bassi e nessuna delle due variabili ha un $\sqrt{VIF}$ maggiore di due dato che gli output sono stati entrambi *FALSE* per le due variabili.   
+Si può dunque affermare che questo modello di regressione non presenta multicollinearità.  
+
+
+
